@@ -324,6 +324,18 @@ func (s Style) UnsetTransform() Style {
 	return s
 }
 
+// UnsetBorderTitle removes the border title, if set.
+func (s Style) UnsetBorderTitle() Style {
+	s.unset(borderTitleKey)
+	return s
+}
+
+// UnsetBorderTitlePosition removes the border title position, if set.
+func (s Style) UnsetBorderTitlePosition() Style {
+	s.unset(borderTitlePositionKey)
+	return s
+}
+
 // UnsetString sets the underlying string value to the empty string.
 func (s Style) UnsetString() Style {
 	s.value = ""

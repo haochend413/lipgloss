@@ -414,6 +414,22 @@ func (s Style) GetTransform() func(string) string {
 	return s.getAsTransform(transformKey)
 }
 
+// GetBorderTitle returns the border title. If no value is set, an empty string
+// is returned.
+func (s Style) GetBorderTitle() string {
+	return s.getAsString(borderTitleKey)
+}
+
+// GetBorderTitlePosition returns the border title position. If no value is set,
+// Left is returned.
+func (s Style) GetBorderTitlePosition() Position {
+	v := s.getAsPosition(borderTitlePositionKey)
+	if v == Position(0) {
+		return Left
+	}
+	return v
+}
+
 // Returns whether or not the given property is set.
 func (s Style) isSet(k propKey) bool {
 	return s.props.has(k)
@@ -508,8 +524,21 @@ func (s Style) getAsPosition(k propKey) Position {
 		return s.alignHorizontal
 	case alignVerticalKey:
 		return s.alignVertical
+	case borderTitlePositionKey:
+		return s.borderTitlePosition
 	}
 	return Position(0)
+}
+
+func (s Style) getAsString(k propKey) string {
+	if !s.isSet(k) {
+		return ""
+	}
+	switch k { //nolint:exhaustive
+	case borderTitleKey:
+		return s.borderTitle
+	}
+	return ""
 }
 
 func (s Style) getBorderStyle() Border {

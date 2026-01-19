@@ -372,7 +372,14 @@ func (s Style) applyBorder(str string) string {
 
 	// Render top
 	if hasTop {
-		top := renderHorizontalEdge(border.TopLeft, border.Top, border.TopRight, width)
+		var top string
+		title := s.getAsString(borderTitleKey)
+		if title != "" {
+			titlePos := s.getAsPosition(borderTitlePositionKey)
+			top = renderHorizontalEdgeWithTitle(border.TopLeft, border.Top, border.TopRight, width, title, titlePos)
+		} else {
+			top = renderHorizontalEdge(border.TopLeft, border.Top, border.TopRight, width)
+		}
 		top = s.styleBorder(top, topFG, topBG)
 		out.WriteString(top)
 		out.WriteRune('\n')
@@ -441,6 +448,84 @@ func renderHorizontalEdge(left, middle, right string, width int) string {
 		}
 		i += ansi.StringWidth(string(runes[j]))
 	}
+	out.WriteString(right)
+
+	return out.String()
+}
+
+// Render the horizontal edge with an embedded title.
+func renderHorizontalEdgeWithTitle(left, middle, right string, width int, title string, titlePos Position) string {
+	if middle == "" {
+		middle = " "
+	}
+
+	leftWidth := ansi.StringWidth(left)
+	rightWidth := ansi.StringWidth(right)
+	titleWidth := ansi.StringWidth(title)
+
+	// Calculate available width for the border (excluding corners)
+	availableWidth := width - leftWidth - rightWidth + rightWidth // total content width
+	if availableWidth < 0 {
+		availableWidth = 0
+	}
+
+	// If title is too long, truncate it
+	if titleWidth > availableWidth-2 {
+		title = ansi.Truncate(title, availableWidth-2, "…")
+		titleWidth = ansi.StringWidth(title)
+	}
+
+	// Calculate padding on each side of the title
+	remainingWidth := availableWidth - titleWidth
+	var leftPad, rightPad int
+
+	switch titlePos {
+	case Right:
+		rightPad = 1
+		leftPad = remainingWidth - rightPad
+	case Center:
+		leftPad = remainingWidth / 2
+		rightPad = remainingWidth - leftPad
+	default: // Left
+		leftPad = 1
+		rightPad = remainingWidth - leftPad
+	}
+
+	if leftPad < 0 {
+		leftPad = 0
+	}
+	if rightPad < 0 {
+		rightPad = 0
+	}
+
+	out := strings.Builder{}
+	out.WriteString(left)
+
+	// Write left padding with border character
+	runes := []rune(middle)
+	j := 0
+	for i := 0; i < leftPad; {
+		out.WriteRune(runes[j])
+		i += displaywidth.Rune(runes[j])
+		j++
+		if j >= len(runes) {
+			j = 0
+		}
+	}
+
+	// Write title
+	out.WriteString(title)
+
+	// Write right padding with border character
+	for i := 0; i < rightPad; {
+		out.WriteRune(runes[j])
+		i += displaywidth.Rune(runes[j])
+		j++
+		if j >= len(runes) {
+			j = 0
+		}
+	}
+
 	out.WriteString(right)
 
 	return out.String()
