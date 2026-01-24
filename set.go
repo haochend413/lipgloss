@@ -65,6 +65,10 @@ func (s *Style) set(key propKey, value interface{}) {
 		s.tabWidth = value.(int)
 	case transformKey:
 		s.transform = value.(func(string) string)
+	case borderTitleKey:
+		s.borderTitle = value.(string)
+	case borderTitlePositionKey:
+		s.borderTitlePosition = value.(Position)
 	default:
 		if v, ok := value.(bool); ok { //nolint:nestif
 			if v {
@@ -145,6 +149,10 @@ func (s *Style) setFrom(key propKey, i Style) {
 		s.set(tabWidthKey, i.tabWidth)
 	case transformKey:
 		s.set(transformKey, i.transform)
+	case borderTitleKey:
+		s.set(borderTitleKey, i.borderTitle)
+	case borderTitlePositionKey:
+		s.set(borderTitlePositionKey, i.borderTitlePosition)
 	default:
 		// Set attributes for set bool properties
 		s.set(key, i.attrs)
@@ -682,6 +690,28 @@ func (s Style) StrikethroughSpaces(v bool) Style {
 //	fmt.Println(s.Render("raow!") // "RAOW!"
 func (s Style) Transform(fn func(string) string) Style {
 	s.set(transformKey, fn)
+	return s
+}
+
+// BorderTitle sets the title text to be embedded in the top border.
+// The title will be rendered within the top border line.
+//
+// Example:
+//
+//	s := NewStyle().Border(RoundedBorder()).BorderTitle(" My Title ")
+func (s Style) BorderTitle(title string) Style {
+	s.set(borderTitleKey, title)
+	return s
+}
+
+// BorderTitlePosition sets the position of the border title.
+// Valid positions are Left, Center, and Right. Default is Left.
+//
+// Example:
+//
+//	s := NewStyle().Border(RoundedBorder()).BorderTitle(" Title ").BorderTitlePosition(Center)
+func (s Style) BorderTitlePosition(p Position) Style {
+	s.set(borderTitlePositionKey, p)
 	return s
 }
 

@@ -76,6 +76,10 @@ const (
 	tabWidthKey
 
 	transformKey
+
+	// Border title.
+	borderTitleKey
+	borderTitlePositionKey
 )
 
 // props is a set of properties.
@@ -158,6 +162,10 @@ type Style struct {
 	tabWidth  int
 
 	transform func(string) string
+
+	// Border title
+	borderTitle         string
+	borderTitlePosition Position
 }
 
 // joinString joins a list of strings into a single string separated with a
