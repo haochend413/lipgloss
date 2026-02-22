@@ -5,8 +5,9 @@ import (
 	"strings"
 	"testing"
 
-	"charm.land/lipgloss/v2"
+	// "charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/exp/golden"
+	"github.com/haochend413/lipgloss/v2"
 )
 
 var TableStyle = func(row, col int) lipgloss.Style {

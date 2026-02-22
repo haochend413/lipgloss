@@ -3,8 +3,9 @@ package tree_test
 import (
 	"fmt"
 
-	"charm.land/lipgloss/v2/tree"
+	// "charm.land/lipgloss/v2/tree"
 	"github.com/charmbracelet/x/ansi"
+	"github.com/haochend413/lipgloss/v2/tree"
 )
 
 // Leaf Examples

@@ -4,8 +4,9 @@ package table
 import (
 	"strings"
 
-	"charm.land/lipgloss/v2"
+	// "charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
+	"github.com/haochend413/lipgloss/v2"
 )
 
 // HeaderRow denotes the header's row index used when rendering headers. Use
