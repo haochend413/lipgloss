@@ -86,6 +86,8 @@ func (s *Style) set(key propKey, value any) {
 		s.link = value.(string)
 	case linkParamsKey:
 		s.linkParams = value.(string)
+	case borderTitleKey:
+		s.borderTitle = value.(string)
 	default:
 		if v, ok := value.(bool); ok { //nolint:nestif
 			if v {
@@ -178,6 +180,8 @@ func (s *Style) setFrom(key propKey, i Style) {
 		s.set(tabWidthKey, i.tabWidth)
 	case transformKey:
 		s.set(transformKey, i.transform)
+	case borderTitleKey:
+		s.set(borderTitleKey, i.borderTitle)
 	default:
 		// Set attributes for set bool properties
 		s.set(key, i.attrs)
@@ -713,6 +717,24 @@ func (s Style) BorderBottomBackground(c color.Color) Style {
 // border.
 func (s Style) BorderLeftBackground(c color.Color) Style {
 	s.set(borderLeftBackgroundKey, c)
+	return s
+}
+
+// BorderTitle sets a title to be embedded in the top border of the style.
+// The title is rendered on the top-left side of the border, replacing
+// border characters.
+//
+// Example:
+//
+//	lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderTitle("My Title")
+//
+// Produces:
+//
+//	╭─My Title──╮
+//	│            │
+//	╰────────────╯
+func (s Style) BorderTitle(title string) Style {
+	s.set(borderTitleKey, title)
 	return s
 }
 

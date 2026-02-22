@@ -352,6 +352,13 @@ func (s Style) UnsetHyperlink() Style {
 	return s
 }
 
+// UnsetBorderTitle removes the border title style rule, if set.
+func (s Style) UnsetBorderTitle() Style {
+	s.unset(borderTitleKey)
+	s.borderTitle = ""
+	return s
+}
+
 // UnsetString sets the underlying string value to the empty string.
 func (s Style) UnsetString() Style {
 	s.value = ""

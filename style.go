@@ -88,6 +88,9 @@ const (
 	// Hyperlink.
 	linkKey
 	linkParamsKey
+
+	// Border title.
+	borderTitleKey
 )
 
 // props is a set of properties.
@@ -186,6 +189,8 @@ type Style struct {
 	borderRightBgColor          color.Color
 	borderBottomBgColor         color.Color
 	borderLeftBgColor           color.Color
+
+	borderTitle string
 
 	maxWidth  int
 	maxHeight int

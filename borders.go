@@ -434,7 +434,11 @@ func (s Style) applyBorder(str string) string {
 
 	// Render top
 	if hasTop {
+		title := s.borderTitle
 		top := renderHorizontalEdge(border.TopLeft, border.Top, border.TopRight, width)
+		if title != "" {
+			top = renderHorizontalEdgeWithTitle(border.TopLeft, border.Top, border.TopRight, width, title)
+		}
 		if blend != nil {
 			out.WriteString(s.styleBorderBlend(top, blend.topGradient, topBG))
 		} else {
@@ -515,6 +519,71 @@ func renderHorizontalEdge(left, middle, right string, width int) string {
 		r := runes[j]
 		out.WriteRune(r)
 		i += ansi.StringWidth(string(r))
+		j++
+		if j >= len(runes) {
+			j = 0
+		}
+	}
+
+	out.WriteString(right)
+	return out.String()
+}
+
+// renderHorizontalEdgeWithTitle renders a horizontal border edge with an
+// embedded title on the left side. The title replaces border characters and is
+// placed after one border character following the left corner.
+//
+// For example, with a rounded border and title "Title":
+//
+//	╭─Title─────╮
+func renderHorizontalEdgeWithTitle(left, middle, right string, width int, title string) string {
+	if middle == "" {
+		middle = " "
+	}
+
+	leftWidth := ansi.StringWidth(left)
+	rightWidth := ansi.StringWidth(right)
+	titleWidth := ansi.StringWidth(title)
+
+	available := width - leftWidth - rightWidth
+	if available <= 0 {
+		// No room for anything, fall back to regular edge.
+		return renderHorizontalEdge(left, middle, right, width)
+	}
+
+	runes := []rune(middle)
+	j := 0
+
+	out := strings.Builder{}
+	out.WriteString(left)
+
+	// If the title is wider than the available space, truncate it.
+	if titleWidth > available {
+		title = ansi.Truncate(title, available, "")
+		titleWidth = ansi.StringWidth(title)
+	}
+
+	// Write one border char before the title (if there's room).
+	prefixWidth := 0
+	if titleWidth < available {
+		r := runes[j]
+		out.WriteRune(r)
+		prefixWidth = ansi.StringWidth(string(r))
+		j++
+		if j >= len(runes) {
+			j = 0
+		}
+	}
+
+	// Write the title.
+	out.WriteString(title)
+
+	// Fill remaining space with border characters.
+	filled := prefixWidth + titleWidth
+	for filled < available {
+		r := runes[j]
+		out.WriteRune(r)
+		filled += ansi.StringWidth(string(r))
 		j++
 		if j >= len(runes) {
 			j = 0

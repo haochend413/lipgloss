@@ -483,6 +483,15 @@ func (s Style) GetHyperlink() (link, params string) {
 	return
 }
 
+// GetBorderTitle returns the style's border title. If no value is set an
+// empty string is returned.
+func (s Style) GetBorderTitle() string {
+	if !s.isSet(borderTitleKey) {
+		return ""
+	}
+	return s.borderTitle
+}
+
 // Returns whether or not the given property is set.
 func (s Style) isSet(k propKey) bool {
 	return s.props.has(k)
