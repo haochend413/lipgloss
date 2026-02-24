@@ -19,8 +19,7 @@ func (s Style) UnsetItalic() Style {
 
 // UnsetUnderline removes the underline style rule, if set.
 func (s Style) UnsetUnderline() Style {
-	s.unset(underlineKey)
-	return s
+	return s.Underline(false)
 }
 
 // UnsetStrikethrough removes the strikethrough style rule, if set.
@@ -96,6 +95,13 @@ func (s Style) UnsetPadding() Style {
 	s.unset(paddingRightKey)
 	s.unset(paddingTopKey)
 	s.unset(paddingBottomKey)
+	s.unset(paddingCharKey)
+	return s
+}
+
+// UnsetPaddingChar removes the padding character style rule, if set.
+func (s Style) UnsetPaddingChar() Style {
+	s.unset(paddingCharKey)
 	return s
 }
 
@@ -237,6 +243,20 @@ func (s Style) UnsetBorderLeftForeground() Style {
 	return s
 }
 
+// UnsetBorderForegroundBlend removes the border blend foreground color rules,
+// if set.
+func (s Style) UnsetBorderForegroundBlend() Style {
+	s.unset(borderForegroundBlendKey)
+	return s
+}
+
+// UnsetBorderForegroundBlendOffset removes the border blend offset style rule,
+// if set.
+func (s Style) UnsetBorderForegroundBlendOffset() Style {
+	s.unset(borderForegroundBlendOffsetKey)
+	return s
+}
+
 // UnsetBorderBackground removes all border background color styles, if
 // set.
 func (s Style) UnsetBorderBackground() Style {
@@ -324,15 +344,18 @@ func (s Style) UnsetTransform() Style {
 	return s
 }
 
-// UnsetBorderTitle removes the border title, if set.
-func (s Style) UnsetBorderTitle() Style {
-	s.unset(borderTitleKey)
+// UnsetHyperlink removes the value set by Hyperlink.
+func (s Style) UnsetHyperlink() Style {
+	s.unset(linkKey)
+	s.unset(linkParamsKey)
+	s.link, s.linkParams = "", "" // save memory
 	return s
 }
 
-// UnsetBorderTitlePosition removes the border title position, if set.
-func (s Style) UnsetBorderTitlePosition() Style {
-	s.unset(borderTitlePositionKey)
+// UnsetBorderTitle removes the border title style rule, if set.
+func (s Style) UnsetBorderTitle() Style {
+	s.unset(borderTitleKey)
+	s.borderTitle = ""
 	return s
 }
 

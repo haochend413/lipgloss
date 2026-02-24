@@ -3,8 +3,9 @@ package tree_test
 import (
 	"fmt"
 
-	"github.com/charmbracelet/lipgloss/tree"
+	// "charm.land/lipgloss/v2/tree"
 	"github.com/charmbracelet/x/ansi"
+	"github.com/haochend413/lipgloss/tree"
 )
 
 // Leaf Examples
@@ -33,7 +34,6 @@ func ExampleLeaf_SetHidden() {
 	// │   └── Quux
 	// │       └── Hello!
 	// └── Baz
-	//
 }
 
 func ExampleNewLeaf() {
@@ -64,7 +64,6 @@ func ExampleNewLeaf() {
 	// │   │       └── leaves
 	// │   └── Quuux
 	// └── Baz
-	//
 }
 
 func ExampleLeaf_SetValue() {
@@ -86,14 +85,14 @@ func ExampleLeaf_SetValue() {
 	glossier.SetValue("Il Makiage")
 	fmt.Println(ansi.Strip(t.String()))
 	// Output:
-	//⁜ Makeup
-	//├── Il Makiage
-	//├── Fenty Beauty
-	//│   ├── Gloss Bomb Universal Lip Luminizer
-	//│   ╰── Hot Cheeks Velour Blushlighter
-	//├── Nyx
-	//├── Mac
-	//╰── Milk
+	// ⁜ Makeup
+	// ├── Il Makiage
+	// ├── Fenty Beauty
+	// │   ├── Gloss Bomb Universal Lip Luminizer
+	// │   ╰── Hot Cheeks Velour Blushlighter
+	// ├── Nyx
+	// ├── Mac
+	// ╰── Milk
 }
 
 // Tree Examples
@@ -144,6 +143,5 @@ func ExampleTree_SetHidden() {
 	// │   ├── Qux
 	// │   └── Quuux
 	// └── Baz
-	//
 	fmt.Println(tr.String())
 }

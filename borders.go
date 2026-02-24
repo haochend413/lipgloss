@@ -1,12 +1,13 @@
 package lipgloss
 
 import (
+	"image/color"
+	"slices"
 	"strings"
 	"unicode/utf8"
 
 	"github.com/charmbracelet/x/ansi"
-	"github.com/clipperhouse/displaywidth"
-	"github.com/muesli/termenv"
+	"github.com/rivo/uniseg"
 )
 
 // Border contains a series of values which comprise the various parts of a
@@ -57,7 +58,10 @@ func (b Border) GetLeftSize() int {
 
 func getBorderEdgeWidth(borderParts ...string) (maxWidth int) {
 	for _, piece := range borderParts {
-		maxWidth = max(maxWidth, maxRuneWidth(piece))
+		w := maxRuneWidth(piece)
+		if w > maxWidth {
+			maxWidth = w
+		}
 	}
 	return maxWidth
 }
@@ -276,6 +280,52 @@ func ASCIIBorder() Border {
 	return asciiBorder
 }
 
+type borderBlend struct {
+	topGradient    []color.Color
+	rightGradient  []color.Color
+	bottomGradient []color.Color
+	leftGradient   []color.Color
+}
+
+func (s Style) borderBlend(width, height int, colors ...color.Color) *borderBlend {
+	gradient := Blend1D(
+		(height+width+2)*2,
+		colors...,
+	)
+
+	// Rotate array forward or reverse based on the offset if provided.
+	if r := -s.getAsInt(borderForegroundBlendOffsetKey); r != 0 {
+		n := len(gradient)
+		r %= n
+		if r < 0 {
+			r += n
+		}
+		slices.Reverse(gradient[:r])
+		slices.Reverse(gradient[r:])
+		slices.Reverse(gradient)
+	}
+
+	offset := 0
+	getFromOffset := func(size int) (s []color.Color) {
+		s = gradient[offset : offset+size]
+		offset += size
+		return s
+	}
+
+	blend := &borderBlend{
+		topGradient:    getFromOffset(width + 2),
+		rightGradient:  getFromOffset(height),
+		bottomGradient: getFromOffset(width + 2),
+		leftGradient:   getFromOffset(height),
+	}
+
+	// bottom and left gradients are reversed because they are drawn in reverse order.
+	slices.Reverse(blend.bottomGradient)
+	slices.Reverse(blend.leftGradient)
+
+	return blend
+}
+
 func (s Style) applyBorder(str string) string {
 	var (
 		border    = s.getBorderStyle()
@@ -283,21 +333,11 @@ func (s Style) applyBorder(str string) string {
 		hasRight  = s.getAsBool(borderRightKey, false)
 		hasBottom = s.getAsBool(borderBottomKey, false)
 		hasLeft   = s.getAsBool(borderLeftKey, false)
-
-		topFG    = s.getAsColor(borderTopForegroundKey)
-		rightFG  = s.getAsColor(borderRightForegroundKey)
-		bottomFG = s.getAsColor(borderBottomForegroundKey)
-		leftFG   = s.getAsColor(borderLeftForegroundKey)
-
-		topBG    = s.getAsColor(borderTopBackgroundKey)
-		rightBG  = s.getAsColor(borderRightBackgroundKey)
-		bottomBG = s.getAsColor(borderBottomBackgroundKey)
-		leftBG   = s.getAsColor(borderLeftBackgroundKey)
 	)
 
 	// If a border is set and no sides have been specifically turned on or off
 	// render borders on all sides.
-	if s.implicitBorders() {
+	if s.isBorderStyleSetWithoutSides() {
 		hasTop = true
 		hasRight = true
 		hasBottom = true
@@ -318,8 +358,11 @@ func (s Style) applyBorder(str string) string {
 		width += maxRuneWidth(border.Left)
 	}
 
-	if hasRight && border.Right == "" {
-		border.Right = " "
+	if hasRight {
+		if border.Right == "" {
+			border.Right = " "
+		}
+		width += maxRuneWidth(border.Right)
 	}
 
 	// If corners should be rendered but are set with the empty string, fill them
@@ -368,20 +411,39 @@ func (s Style) applyBorder(str string) string {
 	border.BottomRight = getFirstRuneAsString(border.BottomRight)
 	border.BottomLeft = getFirstRuneAsString(border.BottomLeft)
 
+	var topFG, rightFG, bottomFG, leftFG color.Color
+	var (
+		blendFG  = s.getAsColors(borderForegroundBlendKey)
+		topBG    = s.getAsColor(borderTopBackgroundKey)
+		rightBG  = s.getAsColor(borderRightBackgroundKey)
+		bottomBG = s.getAsColor(borderBottomBackgroundKey)
+		leftBG   = s.getAsColor(borderLeftBackgroundKey)
+	)
+
+	var blend *borderBlend
+	if len(blendFG) > 0 {
+		blend = s.borderBlend(width, len(lines), blendFG...)
+	} else {
+		topFG = s.getAsColor(borderTopForegroundKey)
+		rightFG = s.getAsColor(borderRightForegroundKey)
+		bottomFG = s.getAsColor(borderBottomForegroundKey)
+		leftFG = s.getAsColor(borderLeftForegroundKey)
+	}
+
 	var out strings.Builder
 
 	// Render top
 	if hasTop {
-		var top string
-		title := s.getAsString(borderTitleKey)
+		title := s.borderTitle
+		top := renderHorizontalEdge(border.TopLeft, border.Top, border.TopRight, width)
 		if title != "" {
-			titlePos := s.getAsPosition(borderTitlePositionKey)
-			top = renderHorizontalEdgeWithTitle(border.TopLeft, border.Top, border.TopRight, width, title, titlePos)
-		} else {
-			top = renderHorizontalEdge(border.TopLeft, border.Top, border.TopRight, width)
+			top = renderHorizontalEdgeWithTitle(border.TopLeft, border.Top, border.TopRight, width, title)
 		}
-		top = s.styleBorder(top, topFG, topBG)
-		out.WriteString(top)
+		if blend != nil {
+			out.WriteString(s.styleBorderBlend(top, blend.topGradient, topBG))
+		} else {
+			out.WriteString(s.styleBorder(top, topFG, topBG))
+		}
 		out.WriteRune('\n')
 	}
 
@@ -392,23 +454,32 @@ func (s Style) applyBorder(str string) string {
 	rightIndex := 0
 
 	// Render sides
+	var r string
 	for i, l := range lines {
 		if hasLeft {
-			r := string(leftRunes[leftIndex])
+			r = string(leftRunes[leftIndex])
 			leftIndex++
 			if leftIndex >= len(leftRunes) {
 				leftIndex = 0
 			}
-			out.WriteString(s.styleBorder(r, leftFG, leftBG))
+			if blend != nil {
+				out.WriteString(s.styleBorder(r, blend.leftGradient[i], leftBG))
+			} else {
+				out.WriteString(s.styleBorder(r, leftFG, leftBG))
+			}
 		}
 		out.WriteString(l)
 		if hasRight {
-			r := string(rightRunes[rightIndex])
+			r = string(rightRunes[rightIndex])
 			rightIndex++
 			if rightIndex >= len(rightRunes) {
 				rightIndex = 0
 			}
-			out.WriteString(s.styleBorder(r, rightFG, rightBG))
+			if blend != nil {
+				out.WriteString(s.styleBorder(r, blend.rightGradient[i], rightBG))
+			} else {
+				out.WriteString(s.styleBorder(r, rightFG, rightBG))
+			}
 		}
 		if i < len(lines)-1 {
 			out.WriteRune('\n')
@@ -418,9 +489,12 @@ func (s Style) applyBorder(str string) string {
 	// Render bottom
 	if hasBottom {
 		bottom := renderHorizontalEdge(border.BottomLeft, border.Bottom, border.BottomRight, width)
-		bottom = s.styleBorder(bottom, bottomFG, bottomBG)
 		out.WriteRune('\n')
-		out.WriteString(bottom)
+		if blend != nil {
+			out.WriteString(s.styleBorderBlend(bottom, blend.bottomGradient, bottomBG))
+		} else {
+			out.WriteString(s.styleBorder(bottom, bottomFG, bottomBG))
+		}
 	}
 
 	return out.String()
@@ -440,21 +514,29 @@ func renderHorizontalEdge(left, middle, right string, width int) string {
 
 	out := strings.Builder{}
 	out.WriteString(left)
-	for i := leftWidth + rightWidth; i < width+rightWidth; {
-		out.WriteRune(runes[j])
+
+	for i := 0; i < width-leftWidth-rightWidth; {
+		r := runes[j]
+		out.WriteRune(r)
+		i += ansi.StringWidth(string(r))
 		j++
 		if j >= len(runes) {
 			j = 0
 		}
-		i += ansi.StringWidth(string(runes[j]))
 	}
-	out.WriteString(right)
 
+	out.WriteString(right)
 	return out.String()
 }
 
-// Render the horizontal edge with an embedded title.
-func renderHorizontalEdgeWithTitle(left, middle, right string, width int, title string, titlePos Position) string {
+// renderHorizontalEdgeWithTitle renders a horizontal border edge with an
+// embedded title on the left side. The title replaces border characters and is
+// placed after one border character following the left corner.
+//
+// For example, with a rounded border and title "Title":
+//
+//	╭─Title─────╮
+func renderHorizontalEdgeWithTitle(left, middle, right string, width int, title string) string {
 	if middle == "" {
 		middle = " "
 	}
@@ -463,63 +545,45 @@ func renderHorizontalEdgeWithTitle(left, middle, right string, width int, title 
 	rightWidth := ansi.StringWidth(right)
 	titleWidth := ansi.StringWidth(title)
 
-	// Calculate available width for the border (excluding corners)
-	availableWidth := width - leftWidth - rightWidth + rightWidth // total content width
-	if availableWidth < 0 {
-		availableWidth = 0
+	available := width - leftWidth - rightWidth
+	if available <= 0 {
+		// No room for anything, fall back to regular edge.
+		return renderHorizontalEdge(left, middle, right, width)
 	}
 
-	// If title is too long, truncate it
-	if titleWidth > availableWidth-2 {
-		title = ansi.Truncate(title, availableWidth-2, "…")
-		titleWidth = ansi.StringWidth(title)
-	}
-
-	// Calculate padding on each side of the title
-	remainingWidth := availableWidth - titleWidth
-	var leftPad, rightPad int
-
-	switch titlePos {
-	case Right:
-		rightPad = 1
-		leftPad = remainingWidth - rightPad
-	case Center:
-		leftPad = remainingWidth / 2
-		rightPad = remainingWidth - leftPad
-	default: // Left
-		leftPad = 1
-		rightPad = remainingWidth - leftPad
-	}
-
-	if leftPad < 0 {
-		leftPad = 0
-	}
-	if rightPad < 0 {
-		rightPad = 0
-	}
+	runes := []rune(middle)
+	j := 0
 
 	out := strings.Builder{}
 	out.WriteString(left)
 
-	// Write left padding with border character
-	runes := []rune(middle)
-	j := 0
-	for i := 0; i < leftPad; {
-		out.WriteRune(runes[j])
-		i += displaywidth.Rune(runes[j])
+	// If the title is wider than the available space, truncate it.
+	if titleWidth > available {
+		title = ansi.Truncate(title, available, "")
+		titleWidth = ansi.StringWidth(title)
+	}
+
+	// Write one border char before the title (if there's room).
+	prefixWidth := 0
+	if titleWidth < available {
+		r := runes[j]
+		out.WriteRune(r)
+		prefixWidth = ansi.StringWidth(string(r))
 		j++
 		if j >= len(runes) {
 			j = 0
 		}
 	}
 
-	// Write title
+	// Write the title.
 	out.WriteString(title)
 
-	// Write right padding with border character
-	for i := 0; i < rightPad; {
-		out.WriteRune(runes[j])
-		i += displaywidth.Rune(runes[j])
+	// Fill remaining space with border characters.
+	filled := prefixWidth + titleWidth
+	for filled < available {
+		r := runes[j]
+		out.WriteRune(r)
+		filled += ansi.StringWidth(string(r))
 		j++
 		if j >= len(runes) {
 			j = 0
@@ -527,42 +591,59 @@ func renderHorizontalEdgeWithTitle(left, middle, right string, width int, title 
 	}
 
 	out.WriteString(right)
-
 	return out.String()
 }
 
-// Apply foreground and background styling to a border.
-func (s Style) styleBorder(border string, fg, bg TerminalColor) string {
+// styleBorder applies foreground and background styling to a border.
+func (s Style) styleBorder(border string, fg, bg color.Color) string {
 	if fg == noColor && bg == noColor {
 		return border
 	}
-
-	style := termenv.Style{}
-
+	var style ansi.Style
 	if fg != noColor {
-		style = style.Foreground(fg.color(s.r))
+		style = style.ForegroundColor(fg)
 	}
 	if bg != noColor {
-		style = style.Background(bg.color(s.r))
+		style = style.BackgroundColor(bg)
 	}
-
 	return style.Styled(border)
 }
 
-func maxRuneWidth(str string) int {
-	switch len(str) {
-	case 0:
-		return 0
-	case 1:
-		return displaywidth.String(str)
-	}
+// styleBorderBlend applies foreground and background styling to a border, using blending.
+func (s Style) styleBorderBlend(border string, fg []color.Color, bg color.Color) string {
+	var out strings.Builder
+	var style ansi.Style
+	var i int
 
+	gr := uniseg.NewGraphemes(border)
+	for gr.Next() {
+		style = style[:0]
+		if fg[i] != noColor {
+			style = style.ForegroundColor(fg[i])
+		}
+		if bg != noColor {
+			style = style.BackgroundColor(bg)
+		}
+		_, _ = out.WriteString(style.String())
+		_, _ = out.Write(gr.Bytes())
+		i++
+	}
+	_, _ = out.WriteString(ansi.ResetStyle)
+	return out.String()
+}
+
+func maxRuneWidth(str string) int {
 	var width int
 
-	g := displaywidth.StringGraphemes(str)
-	for g.Next() {
-		width = max(width, g.Width())
+	state := -1
+	for len(str) > 0 {
+		var w int
+		_, str, w, state = uniseg.FirstGraphemeClusterInString(str, state)
+		if w > width {
+			width = w
+		}
 	}
+
 	return width
 }
 
